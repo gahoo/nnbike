@@ -36,7 +36,8 @@ while(sum(error_idx)>0){
 names(seconds_status)<-seconds
 seconds_status<-ldply(seconds_status, .id='timestamp')
 
-save(seconds_status, file='seconds_status.RData')
+#save(seconds_status, file='seconds_status.RData')
+load('seconds_status.RData')
 
 seconds_status_molen<-melt(seconds_status)
 seconds_status_molen<-within(seconds_status_molen, {
@@ -51,3 +52,13 @@ ggplot(seconds_status_molen) +
   aes(x=timestamp, y=value, color=NO, group=NO) +
   geom_line() +
   facet_grid(variable ~ ., scale='free_y')
+
+test<-subset(seconds_status_molen, NO=="001082" & variable %in% c('E','T','F'))
+ggplot(test) +
+  aes(x=timestamp, y=value, fill=variable) +
+  geom_area()
+
+station<-readLines('BikeStation.json') %>%
+  fromJSON(simplifyVector = FALSE) %>%
+  lapply(as.data.frame) %>%
+  do.call(what=rbind)
