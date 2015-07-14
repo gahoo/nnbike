@@ -24,11 +24,13 @@ start<-c(1,1+end[1:6])
 
 as.POSIXct(seconds/1000, origin="1970-01-01")
 
-seconds_status<-mclapply(seconds, getBikeStatus, mc.cores=1)
+error_idx<-rep(T, length(seconds))
 
-empty_num<-sum(sapply(seconds_status, is.null))
-if(empty_num>0){
-  stop('something goes wrong')
+seconds_status<-list()
+while(sum(error_idx)>0){
+  seconds_status[error_idx]<-mclapply(seconds[error_idx], getBikeStatus, mc.cores=1)
+  error_idx<-sapply(seconds_status, function(x){ifelse(class(x)=="try-error",T,F)})
+  message("remaining error:", sum(error_idx))
 }
 
 names(seconds_status)<-seconds
