@@ -62,3 +62,24 @@ station<-readLines('BikeStation.json') %>%
   fromJSON(simplifyVector = FALSE) %>%
   lapply(as.data.frame) %>%
   do.call(what=rbind)
+
+library(dygraphs)
+
+test<-subset(seconds_status, NO=="001082", select=c('timestamp','E','T','F')) %>%
+  within(expr={
+  timestamp<-timestamp %>%
+    as.character %>%
+    as.numeric %>%
+    "/"(b=1000) %>%
+    as.POSIXct(origin="1970-01-01")
+})
+
+rownames(test)<-test$timestamp
+test$timestamp<-NULL
+
+dygraph(test[900:1600,]) %>%
+  dySeries("E", label = "Error") %>%
+  dySeries("T", label = "Occupied") %>%
+  dySeries("F", label = "Empty") %>%
+  dyOptions(stackedGraph = TRUE) %>%
+  dyRangeSelector(height = 20)
