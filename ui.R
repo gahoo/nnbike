@@ -42,14 +42,14 @@ shinyUI(bootstrapPage(
                                    tabPanel('Table',
                                             DT::dataTableOutput('status_tbl')),
                                    tabPanel('ggplot',
-                                            plotOutput('plot')),
+                                            plotOutput('plot', width="640")),
                                    tabPanel('dygraph',
                                             style = "background-color: #FFFFFF",
                                             conditionalPanel(
                                               condition = "input.use_range == false | input.bound_map == true",
                                               strong('only works when use range not bound map')
                                             ),
-                                            dygraphOutput('dygraph'))
+                                            dygraphOutput('dygraph', width="640px"))
                                  )
                    )
   )
