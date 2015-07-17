@@ -17,10 +17,17 @@ shinyUI(bootstrapPage(
   absolutePanel(top = 10, right = 10, width='30%',
                 tabsetPanel(
                   tabPanel('Ctrl',
-                           strong(textOutput('cur_time')),
-                           uiOutput('date_slider'),
-                           uiOutput('date_range_picker'),
-                           checkboxInput('tbl_bounds', 'Bound Map to Table', value=T),
+                           checkboxInput('use_range', 'Ranges:', value=F),
+                           conditionalPanel(
+                             condition = "input.use_range == true",
+                             uiOutput('date_range_picker')
+                           ),
+                           conditionalPanel(
+                             condition = "input.use_range == false",
+                             strong(textOutput('cur_time')),
+                             uiOutput('date_slider')
+                           ),
+                           checkboxInput('bound_map', 'Bound Map', value=T),
                            checkboxInput('show_data', 'Show Data', value=F)
                   ),
                   tabPanel('About'#,
@@ -33,9 +40,9 @@ shinyUI(bootstrapPage(
                    absolutePanel(bottom = 10, left = 10,
                                  tabsetPanel(
                                    tabPanel('Table',
-                                            DT::dataTableOutput('station_tbl')),
+                                            DT::dataTableOutput('status_tbl')),
                                    tabPanel('ggplot',
-                                            plotOutput('plot', height="640px", width='640px')),
+                                            plotOutput('plot')),
                                    tabPanel('Dotplot',
                                             plotOutput('cities_dot_plot', height="640px", width='480px')),
                                    tabPanel('ggvisDotplot',
