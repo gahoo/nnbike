@@ -43,14 +43,13 @@ shinyUI(bootstrapPage(
                                             DT::dataTableOutput('status_tbl')),
                                    tabPanel('ggplot',
                                             plotOutput('plot')),
-                                   tabPanel('Dotplot',
-                                            plotOutput('cities_dot_plot', height="640px", width='480px')),
-                                   tabPanel('ggvisDotplot',
+                                   tabPanel('dygraph',
                                             style = "background-color: #FFFFFF",
-                                            uiOutput("dot_plot_ui"),
-                                            ggvisOutput("ggvis_cities_dot_plot")
-                                   )
-                                   #dygraphs
+                                            conditionalPanel(
+                                              condition = "input.use_range == false | input.bound_map == true",
+                                              strong('only works when use range not bound map')
+                                            ),
+                                            dygraphOutput('dygraph'))
                                  )
                    )
   )

@@ -135,6 +135,26 @@ shinyServer(function(input, output) {
     
   })
   
+  output$dygraph<-renderDygraph({
+    if(input$bound_map | !input$use_range){
+      return(NULL)
+    }
+    columns<-c('timestamp', 'E', 'F', 'T')
+    dy_tbl<-status_tbl()[columns]
+    
+    rownames(dy_tbl)<-dy_tbl$timestamp
+    dy_tbl$timestamp<-NULL
+    str(dy_tbl)
+    
+    dygraph(dy_tbl) %>%
+      dySeries("E", label = "Error") %>%
+      dySeries("T", label = "Occupied") %>%
+      dySeries("F", label = "Empty") %>%
+      #dyOptions(stackedGraph = TRUE) %>%
+      dyRangeSelector(height = 20)
+    
+  })
+  
   output$helper<-renderText({
     date_range<-as.POSIXct(input$date_range, origin="1970-01-01") + c(-8, 16) * 3600
     str(date_range)
