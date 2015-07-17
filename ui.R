@@ -19,22 +19,23 @@ shinyUI(bootstrapPage(
                   tabPanel('Ctrl',
                            strong(textOutput('cur_time')),
                            uiOutput('date_slider'),
+                           uiOutput('date_range_picker'),
                            checkboxInput('tbl_bounds', 'Bound Map to Table', value=T),
                            checkboxInput('show_data', 'Show Data', value=F)
                   ),
                   tabPanel('About'#,
                           # wellPanel(includeHTML('about.html'))
                   )
-                )
-                #textOutput('helper')
+                ),
+                textOutput('helper')
   ),
   conditionalPanel(condition = "input.show_data == true",
                    absolutePanel(bottom = 10, left = 10,
                                  tabsetPanel(
                                    tabPanel('Table',
-                                            DT::dataTableOutput('broadband_tbl')),
-                                   tabPanel('Barplot',
-                                            plotOutput('cities_bar_plot', height="640px", width='640px')),
+                                            DT::dataTableOutput('station_tbl')),
+                                   tabPanel('ggplot',
+                                            plotOutput('plot', height="640px", width='640px')),
                                    tabPanel('Dotplot',
                                             plotOutput('cities_dot_plot', height="640px", width='480px')),
                                    tabPanel('ggvisDotplot',
