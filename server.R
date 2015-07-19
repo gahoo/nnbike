@@ -33,6 +33,30 @@ colnames(station)[4:5]<-c('longitude', 'latitude')
 
 showtext.auto()
 
+rgbColors<-function(option){
+  total<-option$all
+  option$all<-NULL
+  option<-lapply(option, function(x){
+    num<-x/total
+    inf_idx<-is.infinite(num)
+    nan_idx<-is.nan(num)
+    num[inf_idx|nan_idx]<-1
+    num
+    })
+  color<-try(do.call('rgb', option))
+  color
+}
+
+removeNoChangeTimestamp<-function(df){
+  record_cnts<-nrow(df)
+  records<-as.matrix(df[c('E', 'T', 'F')])
+  records_change<-records[2:record_cnts,]-records[1:(record_cnts-1),]
+  no_change_idx<-!apply(records_change,1,function(x)(sum(x!=0)))==0
+  no_change_region_idx<-no_change_idx[1:(record_cnts-2)]|no_change_idx[2:(record_cnts-1)]
+  df_no_change_idx<-c(T,no_change_region_idx,T)#no_change_idx[record_cnts-1]
+  df[df_no_change_idx,]
+}
+
 shinyServer(function(input, output) {
   
   timestamps<-unique(seconds_status$timestamp)
@@ -82,11 +106,15 @@ shinyServer(function(input, output) {
     leafletProxy('map', data=circle_tbl) %>%
       clearShapes() %>%
       addCircles(
-        radius= ~sqrt(R * 100) * 10,
+        #radius= ~sqrt(R * 100) * 10,
+        radius= ~sqrt(A) * 10,
         popup = ~ Name,
         layerId = ~ NO,
+        fillColor = ~rgbColors(list(red=E, green=F, blue=T, all=A)),
         stroke = F,
-        fillOpacity = 0.3)
+        #fillOpacity = ~rev(R)
+        fillOpacity = 0.8
+        )
   })
   
   output$cur_time<-renderText({
@@ -144,7 +172,6 @@ shinyServer(function(input, output) {
     
     rownames(dy_tbl)<-dy_tbl$timestamp
     dy_tbl$timestamp<-NULL
-    str(dy_tbl)
     
     dygraph(dy_tbl) %>%
       dySeries("E", label = "Error") %>%
