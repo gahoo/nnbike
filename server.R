@@ -12,6 +12,7 @@ library(leaflet)
 library(dygraphs)
 library(reshape2)
 library(ggplot2)
+library(showtext)
 
 load('seconds_status.RData')
 seconds_status <- seconds_status %>%
@@ -30,6 +31,32 @@ station<-readLines('BikeStation.json') %>%
 
 colnames(station)[4:5]<-c('longitude', 'latitude')
 
+showtext.auto()
+
+rgbColors<-function(option){
+  total<-option$all
+  option$all<-NULL
+  option<-lapply(option, function(x){
+    num<-x/total
+    inf_idx<-is.infinite(num)
+    nan_idx<-is.nan(num)
+    num[inf_idx|nan_idx]<-1
+    num
+    })
+  color<-try(do.call('rgb', option))
+  color
+}
+
+removeNoChangeTimestamp<-function(df){
+  record_cnts<-nrow(df)
+  records<-as.matrix(df[c('E', 'T', 'F')])
+  records_change<-records[2:record_cnts,]-records[1:(record_cnts-1),]
+  no_change_idx<-!apply(records_change,1,function(x)(sum(x!=0)))==0
+  no_change_region_idx<-no_change_idx[1:(record_cnts-2)]|no_change_idx[2:(record_cnts-1)]
+  df_no_change_idx<-c(T,no_change_region_idx,T)#no_change_idx[record_cnts-1]
+  df[df_no_change_idx,]
+}
+
 shinyServer(function(input, output) {
   
   timestamps<-unique(seconds_status$timestamp)
@@ -42,14 +69,30 @@ shinyServer(function(input, output) {
              longitude > input$map_bounds$west)
   })
   
-  cur_time_tbl<-reactive({
-    cur_time<-subset(seconds_status, timestamp == timestamps[input$time_slider_idx])
-    merge(cur_time, bound_station(), by='NO')
+  certain_time_tbl<-reactive({
+    subset(seconds_status, timestamp == timestamps[input$time_slider_idx])
   })
   
-  station_tbl<-reactive({
-    subset(seconds_status, NO == input$map_shape_click$id)
+  range_time_tbl<-reactive({
+    date_range<-as.POSIXct(input$date_range,origin="1970-01-01") + c(-8, 16) * 3600
+    subset(seconds_status, timestamp >= min(date_range) &
+             timestamp < max(date_range))
+  })
+  
+  status_tbl<-reactive({
+    if(input$use_range){
+      status_tbl<-range_time_tbl()
+    }else{
+      status_tbl<-certain_time_tbl()
+    }
     
+    if(input$bound_map){
+      status_tbl<-subset(status_tbl, NO %in% bound_station()$NO)
+    }else{
+      status_tbl<-subset(status_tbl, NO == input$map_shape_click$id)
+    }
+    
+    merge(status_tbl, station, by='NO')
   })
   
   output$map<-renderLeaflet({
@@ -59,14 +102,19 @@ shinyServer(function(input, output) {
   })
   
   observe({
-    leafletProxy('map', data=cur_time_tbl()) %>%
+    circle_tbl<-merge(certain_time_tbl(), station, by='NO')
+    leafletProxy('map', data=circle_tbl) %>%
       clearShapes() %>%
       addCircles(
-        radius= ~sqrt(R * 100) * 10,
-        popup = ~ NO,
+        #radius= ~sqrt(R * 100) * 10,
+        radius= ~sqrt(A) * 10,
+        popup = ~ Name,
         layerId = ~ NO,
+        fillColor = ~rgbColors(list(red=E, green=F, blue=T, all=A)),
         stroke = F,
-        fillOpacity = 0.3)
+        #fillOpacity = ~rev(R)
+        fillOpacity = 0.8
+        )
   })
   
   output$cur_time<-renderText({
@@ -79,36 +127,7 @@ shinyServer(function(input, output) {
                 max=length(timestamps),
                 value=1,
                 step=1,
-                animate=animationOptions(interval = 1))
-  })
-  
-  status_tbl<-reactive({
-    if(input$tbl_bounds){
-      dt<-cur_time_tbl()
-    }else{
-      dt<-station_tbl()
-    }
-    
-    dt$Addr<-NULL
-    dt$Name<-NULL
-    dt
-  })
-  
-  status_date_range<-reactive({
-    if(input$tbl_bounds){
-      dt<-subset(seconds_status, NO %in% bound_station()$NO)
-    }else{
-      dt<-station_tbl()
-    }
-    
-    date_range<-as.POSIXct(input$date_range,origin="1970-01-01") + c(-8, 16) * 3600
-    status_date<-subset(dt, timestamp >= min(date_range) &
-             timestamp < max(date_range))
-    status_date
-  })
-  
-  output$station_tbl<-DT::renderDataTable({
-    status_tbl()
+                animate=animationOptions(interval = 500))
   })
   
   output$date_range_picker<-renderUI({
@@ -116,22 +135,50 @@ shinyServer(function(input, output) {
                    start = min(timestamps),
                    end = max(timestamps))
   })
+
+  output$status_tbl<-DT::renderDataTable({
+    status_tbl()
+  })
   
   output$plot<-renderPlot({
-    columns<-c('NO', 'timestamp', 'E', 'F', 'T')
-    status_molen<-melt(status_date_range()[columns], id=c('NO', 'timestamp'))
+    columns<-c('NO', 'Name', 'timestamp', 'E', 'F', 'T', 'R')
+    status_molen<-melt(status_tbl()[columns], id=c('NO', 'Name', 'timestamp', 'R'))
     p<-ggplot(status_molen) + aes(x=timestamp, y=value)
     
-    if(input$tbl_bounds){
+    if(input$bound_map & input$use_range){
       p +
-        aes(color=NO, group=NO) +
+        aes(color=Name, group=Name) +
         geom_line() +
         facet_grid(variable ~ ., scale='free_y')
-    }else{
+    }else if(!input$bound_map & input$use_range){
       p +
         aes(fill=variable) +
         geom_area()
+    }else{
+      p +
+        aes(x=Name, fill=variable, alpha=R) +
+        geom_bar(stat='identity') +
+        coord_flip()
     }
+    
+  })
+  
+  output$dygraph<-renderDygraph({
+    if(input$bound_map | !input$use_range){
+      return(NULL)
+    }
+    columns<-c('timestamp', 'E', 'F', 'T')
+    dy_tbl<-status_tbl()[columns]
+    
+    rownames(dy_tbl)<-dy_tbl$timestamp
+    dy_tbl$timestamp<-NULL
+    
+    dygraph(dy_tbl) %>%
+      dySeries("E", label = "Error") %>%
+      dySeries("T", label = "Occupied") %>%
+      dySeries("F", label = "Empty") %>%
+      #dyOptions(stackedGraph = TRUE) %>%
+      dyRangeSelector(height = 20)
     
   })
   
